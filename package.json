@@ -6,8 +6,8 @@
   "type": "module",
   "scripts": {
     "test": "vitest",
-    "test:browser": "vitest",
-    "test:browser:headless": "vitest --browser.headless"
+    "test-browser": "vitest --browser",
+    "test-browser-headless": "vitest --browser.headless"
   },
   "keywords": [],
   "author": "",

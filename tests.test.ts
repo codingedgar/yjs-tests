@@ -1,6 +1,7 @@
 import { compare } from "uint8arrays";
 import { describe, expect, test, vi } from "vitest";
 import * as Y from "yjs";
+import { diff_position } from "./utils.js";
 
 describe("Yjs tests", () => {
   test("two independent structurally equal documents do not have the same state", () => {
@@ -238,7 +239,7 @@ describe("Yjs tests", () => {
     expect(new Uint8Array([1, 2, 3])).toEqual(new Uint8Array([1, 2, 3])); // ✅ works
   });
 
-  test("how to compare buffers", () => {
+  test("uint8arrays compare works", () => {
     expect(new Uint8Array([1, 2, 3])).instanceOf(Uint8Array);
     expect(compare(new Uint8Array([1, 2, 3]), new Uint8Array([1, 2, 3]))).toBe(
       0,
@@ -257,14 +258,63 @@ describe("Yjs tests", () => {
     );
   });
 
-  test("non visual changes still update the state", () => {
+  // test("clientID is not hydrated", () => {
+  //   const doc = new Y.Doc();
+  //   const doc2 = new Y.Doc();
+  //   doc.getMap("v2").set("test1", "hello");
+  //   Y.applyUpdate(doc2, Y.encodeStateAsUpdate(doc));
+  //   expect(Y.encodeStateVector(doc)).toEqual(Y.encodeStateVector(doc));
+  // });
+
+  test("vector does not grow with each restart", () => {
     const doc = new Y.Doc();
     const state1 = Y.encodeStateAsUpdate(doc);
-    doc.getMap("v2").set("test", "hello");
-    const state2 = Y.encodeStateAsUpdate(doc);
-    expect(state1).not.toEqual(state2);
-    doc.getMap("v2").set("test", "hello");
-    // no visible change, but the state still is different
-    expect(state2).not.toEqual(Y.encodeStateAsUpdate(doc));
+    // empty vector
+    expect(Y.decodeStateVector(Y.encodeStateVector(doc))).toHaveProperty(
+      "size",
+      0,
+    );
+    doc.getMap("v2").set("test1", "hello");
+
+    // vector with my changes
+    expect(Y.decodeStateVector(Y.encodeStateVector(doc))).toHaveProperty(
+      "size",
+      1,
+    );
+
+    const doc2 = new Y.Doc();
+    Y.applyUpdate(doc2, state1);
+
+    // empty vector
+    expect(Y.decodeStateVector(Y.encodeStateVector(doc2))).toHaveProperty(
+      "size",
+      0,
+    );
+
+    doc2.getMap("v2").set("test1", "hello");
+
+    // vector with my changes
+    expect(Y.decodeStateVector(Y.encodeStateVector(doc2))).toHaveProperty(
+      "size",
+      1,
+    );
+  });
+
+  test("state update comparison fails on the first byte (fast comparison)", () => {
+    const doc1 = new Y.Doc();
+    doc1.on("update", console.log);
+    doc1.getMap("v2").set("test", "hello");
+    const doc2 = new Y.Doc();
+    const state1 = Y.encodeStateAsUpdate(doc1);
+    Y.applyUpdate(doc2, state1);
+    const state2 = Y.encodeStateAsUpdate(doc2);
+
+    // same state
+    expect(diff_position(state1, state2)).toBe(-1);
+
+    doc2.getMap("v2").set("test2", "hello");
+    const state3 = Y.encodeStateAsUpdate(doc2);
+    // different state
+    expect(diff_position(state1, state3)).toBe(0);
   });
 });
