@@ -302,7 +302,6 @@ describe("Yjs tests", () => {
 
   test("state update comparison fails on the first byte (fast comparison)", () => {
     const doc1 = new Y.Doc();
-    doc1.on("update", console.log);
     doc1.getMap("v2").set("test", "hello");
     const doc2 = new Y.Doc();
     const state1 = Y.encodeStateAsUpdate(doc1);
@@ -316,5 +315,19 @@ describe("Yjs tests", () => {
     const state3 = Y.encodeStateAsUpdate(doc2);
     // different state
     expect(diff_position(state1, state3)).toBe(0);
+  });
+
+  test("applyUpdate with no changes does not trigger update event", () => {
+    const doc1 = new Y.Doc();
+    doc1.getMap("v2").set("test", "hello");
+    const doc2 = new Y.Doc();
+    const state1 = Y.encodeStateAsUpdate(doc1);
+    Y.applyUpdate(doc2, state1);
+    const spy = vi.fn();
+    doc1.on("update", spy);
+    doc2.getMap("v2").set("test2", "hello");
+    Y.applyUpdate(doc1, Y.encodeStateAsUpdate(doc2));
+    Y.applyUpdate(doc1, Y.encodeStateAsUpdate(doc2));
+    expect(spy).toHaveBeenCalledTimes(1);
   });
 });
